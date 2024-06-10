@@ -1,7 +1,5 @@
 -- adapted from @markeats
 
-local musicutil = require 'musicutil'
-
 lfos = {}
 lfos.count = 32
 
@@ -20,13 +18,17 @@ for i = 1,lfos.count do
   lfos.last_track[i] = 'none'
 end
 
-_lfo = require 'lfo'
+_lfo = include 'imports/lfo'
 
 all_loaded = false
 
 klfo = {}
 
 ivals = {}
+
+local function note_num_to_freq(value)
+  return 13.75 * (2 ^ ((note_num - 9) / 12))
+end
 
 function lfos.add_params(track_count, fx_names, poly)
 
@@ -497,7 +499,7 @@ end
 function lfos.send_param_value(target_track, target_id, value)
   if target_track ~= "delay" and target_track ~= "feedback" and target_track ~= "main" then
     if target_id == "carHz" then
-      value = musicutil.note_num_to_freq(value)
+      value = note_num_to_freq(value)
     end
     if string.find(target_track,'sample') and (target_id == 'playbackRateBase' or target_id == 'loop') then
       params:set(target_track..'_'..target_id,util.round(value))
