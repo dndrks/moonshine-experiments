@@ -158,24 +158,21 @@ KildareTimbre {
 			mainSend = Pan2.ar(car,pan);
 			mainSend = mainSend * (amp * LinLin.kr(velocity,0,127,0.0,1.0));
 
-			delEnv = Select.kr(
-				delayEnv > 0, [
-					delaySend,
-					delaySend * EnvGen.kr(
-						envelope: Env.new([0,0,1,0], times: [0,delayAtk,delayRel], curve: [0, delayCurve*(-1), delayCurve]),
-						gate: t_gate
-					)
-				]
+			delEnv = delaySend * EnvGen.ar(
+				envelope: Env.new(
+					[1-delayEnv,1-delayEnv,1,1-delayEnv],
+					times: [0.01,delayAtk,delayRel],
+					curve: [0, delayCurve*(-1), delayCurve]),
+				gate: t_gate
 			);
 
-			feedEnv = Select.kr(
-				feedbackEnv > 0, [
-					feedbackSend,
-					feedbackSend * EnvGen.kr(
-						envelope: Env.new([0,0,1,0], times: [0,feedbackAtk,feedbackRel], curve: [0, feedbackCurve*(-1), feedbackCurve]),
-						gate: t_gate
-					)
-				]
+			feedEnv = feedbackSend * EnvGen.ar(
+				envelope: Env.new(
+					[1-feedbackEnv,1-feedbackEnv,1,1-feedbackEnv],
+					times: [0.01,feedbackAtk,feedbackRel],
+					curve: [0, feedbackCurve*(-1), feedbackCurve]
+				),
+				gate: t_gate
 			);
 
 			Out.ar(out, mainSend);

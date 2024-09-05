@@ -618,19 +618,55 @@ Kildare {
 
 	}
 
-	test_trigger { arg voiceKey, velocity, allocVoice;
+	renew_bd { arg voiceKey, allocVoice;
+		voiceTracker[voiceKey][allocVoice].set(\t_gate, -1.1);
+		Server.default.makeBundle(nil,{
+			voiceTracker[voiceKey][allocVoice] = Synth.new(
+				synthKeys[voiceKey],
+				polyParams[voiceKey][allocVoice].getPairs
+			);
+			voiceTracker[voiceKey][allocVoice].set(\t_gate, 1);
+			NodeWatcher.register(voiceTracker[voiceKey][allocVoice],true);
+		});
+	}
 
-		paramProtos[voiceKey][\velocity] = velocity;
-		indexTracker[voiceKey] = allocVoice;
-		if (voiceTracker[voiceKey][allocVoice].isPlaying, {
+	create_bd { arg voiceKey, allocVoice;
+		Server.default.makeBundle(nil,{
+			voiceTracker[voiceKey][allocVoice] = Synth.new(
+				synthKeys[voiceKey],
+				polyParams[voiceKey][allocVoice].getPairs
+			);
+			voiceTracker[voiceKey][allocVoice].set(\t_gate, 1);
+			NodeWatcher.register(voiceTracker[voiceKey][allocVoice],true);
+		});
+	}
+
+	renew_others { arg voiceKey, velocity, allocVoice;
+		Server.default.makeBundle(nil,{
 			voiceTracker[voiceKey][allocVoice].set(\velocity, velocity);
 			voiceTracker[voiceKey][allocVoice].set(\t_gate, 1);
 			if ((""++synthKeys[voiceKey]++"").contains("sample"), {
 				voiceTracker[voiceKey][allocVoice].set(\t_trig, 1);
 				('triggering sample '++allocVoice).postln;
+				this.setSampleLoop(voiceKey, allocVoice);
+			})
+		});
+	}
+
+	test_trigger { arg voiceKey, velocity, allocVoice;
+
+		paramProtos[voiceKey][\velocity] = velocity;
+		indexTracker[voiceKey] = allocVoice;
+		if (voiceTracker[voiceKey][allocVoice].isPlaying, {
+			if (synthKeys[voiceKey] == \kildare_bd, {
+				this.renew_bd(voiceKey, allocVoice);
+			},{
+				this.renew_others(voiceKey, velocity, allocVoice);
 			});
-			this.setSampleLoop(voiceKey, allocVoice);
-			// (' ' ++ indexTracker[voiceKey] ++ ' ' ++ allocVoice).postln;
+		},{
+			if (synthKeys[voiceKey] == \kildare_bd, {
+				this.create_bd(voiceKey, allocVoice);
+			});
 		});
 	}
 

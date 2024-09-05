@@ -56,7 +56,7 @@ KildareCB {
 			feedbackEnv, feedbackAtk, feedbackRel, feedbackCurve = -4,
 			velocity = 127,
 			amp, carHz, carDetune,
-			modHz, modAmp, modAtk, modRel, modCurve = -4, feedAmp,
+			feedAmp,
 			modFollow, modNum, modDenum,
 			carAtk, carRel, carCurve = -4,
 			snap,
@@ -66,7 +66,7 @@ KildareCB {
 			lpAtk, lpRel, lpCurve = -4, lpDepth,
 			squishPitch, squishChunk;
 
-			var car, mod, carEnv, modEnv, carRamp, feedMod, feedCar, ampMod,
+			var car, mod, carEnv, carRamp, feedMod, feedCar, ampMod,
 			voice_1, voice_2, filterEnv, delEnv, feedEnv, mainSend;
 
 			amp = amp*0.6;
@@ -77,7 +77,7 @@ KildareCB {
 			feedbackSend = feedbackSend.lag3(0.1);
 
 			carHz = carHz * (2.pow(carDetune/12));
-			modHz = Select.kr(modFollow > 0, [modHz, carHz * (modNum / modDenum)]);
+			carHz = carHz.lag2(t1: (carAtk/2).clip(0.01,0.1));
 
 			filterQ = LinLin.kr(filterQ,0,100,1.0,0.001);
 			feedAmp = LinLin.kr(feedAmp,0.0,1.0,1.0,3.0);
@@ -86,19 +86,15 @@ KildareCB {
 			amDepth = LinLin.kr(amDepth,0,1.0,0.0,2.0);
 			snap = LinLin.kr(snap,0.0,1.0,0.0,10.0);
 
-			modEnv = EnvGen.kr(
-				envelope: Env.new([0,0,1,0], times: [0,modAtk,modRel], curve: [0, modCurve*(-1), modCurve]),
-				gate: t_gate
-			);
-			carRamp = EnvGen.kr(
+			carRamp = EnvGen.ar(
 				Env([600,600, 0.000001], [0,rampDec], curve: \lin),
 				gate: t_gate
 			);
-			carEnv = EnvGen.kr(
-				envelope: Env.new([0,0,1,0], times: [0,carAtk,carRel], curve: [0, carCurve*(-1), carCurve]),
+			carEnv = EnvGen.ar(
+				envelope: Env.new([0,0,1,0], times: [0.01,carAtk,carRel], curve: [0, carCurve*(-1), carCurve]),
 				gate: t_gate
 			);
-			filterEnv = EnvGen.kr(
+			filterEnv = EnvGen.ar(
 				envelope: Env.new([0,0,1,0], times: [0.01,lpAtk,lpRel], curve: [0, lpCurve*(-1), lpCurve]),
 				gate: t_gate
 			);
@@ -118,24 +114,21 @@ KildareCB {
 			mainSend = Pan2.ar(voice_1,pan);
 			mainSend = mainSend * (amp * LinLin.kr(velocity,0,127,0.0,1.0));
 
-			delEnv = Select.kr(
-				delayEnv > 0, [
-					delaySend,
-					delaySend * EnvGen.kr(
-						envelope: Env.new([0,0,1,0], times: [0,delayAtk,delayRel], curve: [0, delayCurve*(-1), delayCurve]),
-						gate: t_gate
-					)
-				]
+			delEnv = delaySend * EnvGen.ar(
+				envelope: Env.new(
+					[1-delayEnv,1-delayEnv,1,1-delayEnv],
+					times: [0.01,delayAtk,delayRel],
+					curve: [0, delayCurve*(-1), delayCurve]),
+				gate: t_gate
 			);
 
-			feedEnv = Select.kr(
-				feedbackEnv > 0, [
-					feedbackSend,
-					feedbackSend * EnvGen.kr(
-						envelope: Env.new([0,0,1,0], times: [0,feedbackAtk,feedbackRel], curve: [0, feedbackCurve*(-1), feedbackCurve]),
-						gate: t_gate
-					)
-				]
+			feedEnv = feedbackSend * EnvGen.ar(
+				envelope: Env.new(
+					[1-feedbackEnv,1-feedbackEnv,1,1-feedbackEnv],
+					times: [0.01,feedbackAtk,feedbackRel],
+					curve: [0, feedbackCurve*(-1), feedbackCurve]
+				),
+				gate: t_gate
 			);
 
 			Out.ar(out, mainSend);

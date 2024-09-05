@@ -88,9 +88,7 @@ KildareSD {
 			lpAtk, lpRel, lpCurve = -4, lpDepth,
 			amDepth, amHz;
 
-			var car, carThird, carSeventh,
-			modHzThird, modHzSeventh,
-			mod,
+			var car, mod,
 			carEnv, modEnv, carRamp, feedMod, feedCar,
 			noise, noiseEnv, mix, ampMod, filterEnv, delEnv, feedEnv, mainSendCar, mainSendNoise;
 
@@ -103,32 +101,27 @@ KildareSD {
 			feedbackSend = feedbackSend.lag3(0.1);
 
 			carHz = (carHz * (1 - modFollow)) + (carHz * modFollow * modNum);
-			carHzThird = (carHzThird * (1 - modFollow)) + (carHzThird * modFollow * modNum);
-			carHzSeventh = (carHzSeventh * (1 - modFollow)) + (carHzSeventh * modFollow * modNum);
-
 			carHz = carHz * (2.pow(carDetune/12));
-			carHzThird = carHzThird * (2.pow(carDetune/12));
-			carHzSeventh = carHzSeventh * (2.pow(carDetune/12));
-
+			carHz = carHz.lag2(t1: (carAtk/2).clip(0.01,0.1));
 			modHz = (modHz * (1 - modFollow)) + (carHz * modFollow * modDenum);
-			modHzThird = (modHz * (1 - modFollow)) + (carHzThird * modFollow * modDenum);
-			modHzSeventh = (modHz * (1 - modFollow)) + (carHzSeventh * modFollow * modDenum);
+			modHz = modHz * (2.pow(carDetune/12));
+			modHz = modHz.lag2(t1: (modAtk/2).clip(0.01,0.1));
 
 			filterQ = LinLin.kr(filterQ,0,100,1.0,0.001);
-			modEnv = EnvGen.kr(
-				envelope: Env.new([0,0,1,0], times: [0,modAtk,modRel], curve: [0, modCurve*(-1), modCurve]),
+			modEnv = EnvGen.ar(
+				envelope: Env.new([0,0,1,0], times: [0.01,modAtk,modRel], curve: [0, modCurve*(-1), modCurve]),
 				gate: t_gate
 			);
-			filterEnv = EnvGen.kr(
+			filterEnv = EnvGen.ar(
 				envelope: Env.new([0,0,1,0], times: [0.01,lpAtk,lpRel], curve: [0, lpCurve*(-1), lpCurve]),
 				gate: t_gate
 			);
-			carRamp = EnvGen.kr(
+			carRamp = EnvGen.ar(
 				envelope: Env([0,1000, 0.000001], [0,rampDec], curve: \exp),
 				gate: t_gate
 			);
-			carEnv = EnvGen.kr(
-				envelope: Env.new([0,0,1,0], times: [0,carAtk,carRel], curve: [0, carCurve*(-1), carCurve]),
+			carEnv = EnvGen.ar(
+				envelope: Env.new([0,0,1,0], times: [0.01,carAtk,carRel], curve: [0, carCurve*(-1), carCurve]),
 				gate: t_gate
 			);
 			modAmp = LinLin.kr(modAmp,0.0,1.0,0,127);
@@ -144,8 +137,8 @@ KildareSD {
 
 			car = SinOsc.ar(carHz + mod + (carRamp*rampDepth)) * carEnv;
 
-			noiseEnv = EnvGen.kr(
-				envelope: Env.new([0,0,1,0], times: [0,noiseAtk,noiseRel], curve: [0,noiseCurve*(-1),noiseCurve]),
+			noiseEnv = EnvGen.ar(
+				envelope: Env.new([0,0,1,0], times: [0.01,noiseAtk,noiseRel], curve: [0,noiseCurve*(-1),noiseCurve]),
 				gate: t_gate
 			);
 			noise = BPF.ar(WhiteNoise.ar(0.24),8000,1.3) * (noiseAmp*noiseEnv);
@@ -170,24 +163,21 @@ KildareSD {
 			mainSendNoise = Pan2.ar(noise,pan);
 			mainSendNoise = mainSendNoise * amp * LinLin.kr(velocity,0,127,0.0,1.0);
 
-			delEnv = Select.kr(
-				delayEnv > 0, [
-					delaySend,
-					delaySend * EnvGen.kr(
-						envelope: Env.new([0,0,1,0], times: [0,delayAtk,delayRel], curve: [0, delayCurve*(-1), delayCurve]),
-						gate: t_gate
-					)
-				]
+			delEnv = delaySend * EnvGen.ar(
+				envelope: Env.new(
+					[1-delayEnv,1-delayEnv,1,1-delayEnv],
+					times: [0.01,delayAtk,delayRel],
+					curve: [0, delayCurve*(-1), delayCurve]),
+				gate: t_gate
 			);
 
-			feedEnv = Select.kr(
-				feedbackEnv > 0, [
-					feedbackSend,
-					feedbackSend * EnvGen.kr(
-						envelope: Env.new([0,0,1,0], times: [0,feedbackAtk,feedbackRel], curve: [0, feedbackCurve*(-1), feedbackCurve]),
-						gate: t_gate
-					)
-				]
+			feedEnv = feedbackSend * EnvGen.ar(
+				envelope: Env.new(
+					[1-feedbackEnv,1-feedbackEnv,1,1-feedbackEnv],
+					times: [0.01,feedbackAtk,feedbackRel],
+					curve: [0, feedbackCurve*(-1), feedbackCurve]
+				),
+				gate: t_gate
 			);
 
 			Out.ar(out, mainSendCar);

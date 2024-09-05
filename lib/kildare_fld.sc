@@ -84,8 +84,7 @@ KildareFLD {
 			lpHz, hpHz, filterQ,
 			lpAtk, lpRel, lpCurve = -4, lpDepth;
 
-			var car, carThird, carSeventh,
-			mod, modHzThird, modHzSeventh,
+			var saw, lftri, lfpar, car, mod,
 			carEnv, modEnv, carRamp,
 			feedMod, feedCar, ampMod,
 			filterEnv, delEnv, feedEnv, mainSend;
@@ -102,8 +101,6 @@ KildareFLD {
 			delaySend = delaySend.lag3(0.1);
 			feedbackSend = feedbackSend.lag3(0.1);
 			modHz = (modHz * (1 - modFollow)) + (carHz * modFollow * modDenum);
-			modHzThird = (modHz * (1 - modFollow)) + (carHzThird * modFollow * modDenum);
-			modHzSeventh = (modHz * (1 - modFollow)) + (carHzSeventh * modFollow * modDenum);
 
 			filterQ = LinLin.kr(filterQ,0,100,1.0,0.001);
 			modAmp = LinLin.kr(modAmp,0.0,1.0,0,127);
@@ -112,11 +109,7 @@ KildareFLD {
 			rampDepth = LinLin.kr(rampDepth,0.0,1.0,0.0,2.0);
 			amDepth = LinLin.kr(amDepth,0.0,1.0,0.0,2.0);
 			carHz = (carHz * (1 - modFollow)) + (carHz * modFollow * modNum);
-			carHzThird = (carHzThird * (1 - modFollow)) + (carHzThird * modFollow * modNum);
-			carHzSeventh = (carHzSeventh * (1 - modFollow)) + (carHzSeventh * modFollow * modNum);
 			carHz = carHz * (2.pow(carDetune/12));
-			carHzThird = carHzThird * (2.pow(carDetune/12));
-			carHzSeventh = carHzSeventh * (2.pow(carDetune/12));
 
 			modEnv = EnvGen.kr(
 				envelope: Env.new([0,0,1,0], times: [0,modAtk,modRel], curve: [0, modCurve*(-1), modCurve]),
@@ -141,11 +134,11 @@ KildareFLD {
 				modAmp*10
 			) * modEnv;
 
-			car = (SinOsc.ar(carHz + (mod) + (carRamp*rampDepth)) + Saw.ar(carHz/4)) ;
-			carThird = (SinOsc.ar(carHz + (mod) + (carRamp*rampDepth)) + LFTri.ar(carHz/4));
-			carSeventh = (SinOsc.ar(carHz + (mod) + (carRamp*rampDepth)) + LFPar.ar(carHz/4));
+			saw = (SinOsc.ar(carHz + (mod) + (carRamp*rampDepth)) + Saw.ar(carHz/4)) ;
+			lftri = (SinOsc.ar(carHz + (mod) + (carRamp*rampDepth)) + LFTri.ar(carHz/4));
+			lfpar = (SinOsc.ar(carHz + (mod) + (carRamp*rampDepth)) + LFPar.ar(carHz/4));
 
-			car = ((car * 0.5) + (carThird * 0.32) + (carSeventh * 0.18)) * carEnv;
+			car = ((saw * 0.5) + (lftri * 0.32) + (lfpar * 0.18)) * carEnv;
 
 			ampMod = SinOsc.ar(freq:amHz,mul:(amDepth/2),add:1);
 			car = car * ampMod;
@@ -161,24 +154,21 @@ KildareFLD {
 			mainSend = Pan2.ar(car,pan);
 			mainSend = mainSend * (amp * LinLin.kr(velocity,0,127,0.0,1.0));
 
-			delEnv = Select.kr(
-				delayEnv > 0, [
-					delaySend,
-					delaySend * EnvGen.kr(
-						envelope: Env.new([0,0,1,0], times: [0,delayAtk,delayRel], curve: [0, delayCurve*(-1), delayCurve]),
-						gate: t_gate
-					)
-				]
+			delEnv = delaySend * EnvGen.ar(
+				envelope: Env.new(
+					[1-delayEnv,1-delayEnv,1,1-delayEnv],
+					times: [0.01,delayAtk,delayRel],
+					curve: [0, delayCurve*(-1), delayCurve]),
+				gate: t_gate
 			);
 
-			feedEnv = Select.kr(
-				feedbackEnv > 0, [
-					feedbackSend,
-					feedbackSend * EnvGen.kr(
-						envelope: Env.new([0,0,1,0], times: [0,feedbackAtk,feedbackRel], curve: [0, feedbackCurve*(-1), feedbackCurve]),
-						gate: t_gate
-					)
-				]
+			feedEnv = feedbackSend * EnvGen.ar(
+				envelope: Env.new(
+					[1-feedbackEnv,1-feedbackEnv,1,1-feedbackEnv],
+					times: [0.01,feedbackAtk,feedbackRel],
+					curve: [0, feedbackCurve*(-1), feedbackCurve]
+				),
+				gate: t_gate
 			);
 
 			Out.ar(out, mainSend);

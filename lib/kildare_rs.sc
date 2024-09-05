@@ -85,8 +85,11 @@ KildareRS {
 			delaySend = delaySend.lag3(0.1);
 			feedbackSend = feedbackSend.lag3(0.1);
 
+			carHz = (carHz * (1 - modFollow)) + (carHz * modFollow * modNum);
 			carHz = carHz * (2.pow(carDetune/12));
-			modHz = Select.kr(modFollow > 0, [modHz, carHz * (modNum / modDenum)]);
+			carHz = carHz.lag2(t1: (carAtk/2).clip(0.01,0.1));
+			modHz = (modHz * (1 - modFollow)) + (carHz * modFollow * modDenum);
+			modHz = modHz * (2.pow(carDetune/12));
 
 			filterQ = LinLin.kr(filterQ,0,100,1.0,0.001);
 			modAmp = LinLin.kr(modAmp,0.0,1.0,0,127);
@@ -97,15 +100,15 @@ KildareRS {
 			feedAmp3 = modAmp.linlin(0, 127, 0, 3);
 			feedAmp4 = modAmp.linlin(0, 127, 0, 4);
 
-			carRamp = EnvGen.kr(
+			carRamp = EnvGen.ar(
 				Env([600,600, 0.000001], [0,rampDec], curve: \lin),
 				gate: t_gate
 			);
-			carEnv = EnvGen.kr(
-				envelope: Env.new([0,0,1,0], times: [0,carAtk,carRel], curve: [0, carCurve*(-1), carCurve]),
+			carEnv = EnvGen.ar(
+				envelope: Env.new([0,0,1,0], times: [0.01,carAtk,carRel], curve: [0, carCurve*(-1), carCurve]),
 				gate: t_gate
 			);
-			filterEnv = EnvGen.kr(
+			filterEnv = EnvGen.ar(
 				envelope: Env.new([0,0,1,0], times: [0.01,lpAtk,lpRel], curve: [0, lpCurve*(-1), lpCurve]),
 				gate: t_gate
 			);
@@ -131,15 +134,15 @@ KildareRS {
 			car = car.softclip;
 
 			sd_modHz = carHz*2.52;
-			sd_modEnv = EnvGen.kr(
-				envelope: Env.new([0,0,1,0], times: [0,carAtk,carRel], curve: [0,carCurve*(-1),carCurve]),
+			sd_modEnv = EnvGen.ar(
+				envelope: Env.new([0,0,1,0], times: [0.01,carAtk,carRel], curve: [0,carCurve*(-1),carCurve]),
 				gate: t_gate
 			);
-			sd_carRamp = EnvGen.kr(
+			sd_carRamp = EnvGen.ar(
 				Env([1000,1000, 0.000001], [0,rampDec], curve: \exp),
 				gate: t_gate
 			);
-			sd_carEnv = EnvGen.kr(
+			sd_carEnv = EnvGen.ar(
 				envelope: Env.new([0,0,1,0], times: [0.01,sdAtk,sdRel], curve: [sdCurve,sdCurve*(-1)]),
 				gate: t_gate
 			);
@@ -149,16 +152,6 @@ KildareRS {
 			sd_car = SinOsc.ar(carHz + sd_mod + (carRamp*rampDepth)) * sd_carEnv * sdAmp;
 			sd_mix = sd_car * ampMod;
 			sd_mix = sd_mix.softclip;
-
-			delEnv = Select.kr(
-				delayEnv > 0, [
-					delaySend,
-					delaySend * EnvGen.kr(
-						envelope: Env.new([0,0,1,0], times: [0,delayAtk,delayRel], curve: [0, delayCurve*(-1), delayCurve]),
-						gate: t_gate
-					)
-				]
-			);
 
 			mainSendMix = (car + sd_mix);
 			mainSendMix = Squiz.ar(in:mainSendMix, pitchratio:squishPitch, zcperchunk:squishChunk, mul:1);
@@ -171,14 +164,21 @@ KildareRS {
 			mainSendMix = Pan2.ar(mainSendMix,pan);
 			mainSendMix = mainSendMix * amp * LinLin.kr(velocity,0,127,0.0,1.0);
 
-			feedEnv = Select.kr(
-				feedbackEnv > 0, [
-					feedbackSend,
-					feedbackSend * EnvGen.kr(
-						envelope: Env.new([0,0,1,0], times: [0,feedbackAtk,feedbackRel], curve: [0, feedbackCurve*(-1), feedbackCurve]),
-						gate: t_gate
-					)
-				]
+			delEnv = delaySend * EnvGen.ar(
+				envelope: Env.new(
+					[1-delayEnv,1-delayEnv,1,1-delayEnv],
+					times: [0.01,delayAtk,delayRel],
+					curve: [0, delayCurve*(-1), delayCurve]),
+				gate: t_gate
+			);
+
+			feedEnv = feedbackSend * EnvGen.ar(
+				envelope: Env.new(
+					[1-feedbackEnv,1-feedbackEnv,1,1-feedbackEnv],
+					times: [0.01,feedbackAtk,feedbackRel],
+					curve: [0, feedbackCurve*(-1), feedbackCurve]
+				),
+				gate: t_gate
 			);
 
 			Out.ar(out, mainSendMix);
